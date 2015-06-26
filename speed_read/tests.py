@@ -39,7 +39,8 @@ class PassageModelTests(TestCase):
 
 
 class WordsPerMinuteTests(TestCase):
-    #timedelta([days[, seconds[, microseconds[, milliseconds[, minutes[, hours[, weeks]]]]]]])
+    # timedelta([days[, seconds[, 
+    #    microseconds[, milliseconds[, minutes[, hours[, weeks]]]]]]])
 
     def test_one_minute(self):
         now = datetime.datetime.now(pytz.utc)
