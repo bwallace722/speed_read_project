@@ -5,7 +5,7 @@ from django.views import generic
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponse, HttpResponseRedirect
 
-from .models import TrainingSession
+from .models import TrainingSession, Exercise, Passage
 
 
 class LoginRequiredMixin(object):
@@ -41,19 +41,39 @@ def generate_exercise_and_reroute(request):
     page when the controller needs to generate a new exercise for the
     session and then send the user to that start that exercise.
     """
-    # get the session
+    # 1. get the session
     session = TrainingSession.get_current_session(request)
     if session is not None:
-        # create the exercise, assign it to the session, make sure that it's
-        # the new active exercise
+        # 2. choose a passage
         # we only exclude passages that have been used in THIS training
         # session, otherwise we could potentially run out of passages
-        # with an avid user
+        # with an avid user 
         used_passages = [ex.passage for ex in
             Exercise.objects.filter(training_session=session)]
         passages = [p for p in Passage.objects.all() if p not in used_passages]
-        passage = random.select(passages)
-        assert passage is not None
+        #assert len(passages)
+        if not len(passages):
+            p = Passage(passage_title="example", passage_text="example text")
+            p.save()
+            passages = [p]
+        passage = random.choice(passages)
+        # 3. choose questions for the passage
+        # TODO give it actual questions
+        questions = []
+
+        # 4. instantiate the exercise and attach it to the session,
+        # attach the questions
+        new_exercise = Exercise(passage=passage, training_session=session)
+        new_exercise.save()
+        session.active_exercise = new_exercise
+        session.save()
+        for q in questions:
+            QuestionExercise(q, new_exercise).save()
+
+        # 5. redirect to the appropriate page (passage view)
+        return passage_view(request)
+
+
 
 
     else:

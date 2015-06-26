@@ -232,4 +232,4 @@ class QuestionExercise(models.Model):
     }
     question = models.ForeignKey(ComprehensionQuestion)
     exercise = models.ForeignKey(Exercise)
-    status = models.SmallIntegerField(choices=STATUSES)
+    status = models.SmallIntegerField(choices=STATUSES, default=UNATTEMPTED)
