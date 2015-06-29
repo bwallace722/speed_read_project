@@ -67,19 +67,16 @@ class TrainingSession(models.Model):
             visible = (active_section >= request_section)
             active = (active_section == request_section)
 
-
         else:
             exercise = None
             visible = False
             active = False
 
-
-
-
         return {'session': session,
                 'exercise': exercise,
                 'visible': visible,
                 'active': active}
+
 
     def get_active_section(self):
         if self.active_exercise.passage_stop_time is None:
@@ -88,6 +85,7 @@ class TrainingSession(models.Model):
             return 'comprehension'
         else:
             return 'results'
+
 
     def get_continue_status(self):
         """ 
@@ -129,6 +127,10 @@ class Passage(models.Model):
         """
         return len(passage_string.split())
 
+    @property
+    def passage_instructions(self):
+        return 'example instructions'
+
 
 class Exercise(models.Model):
     """
@@ -166,17 +168,18 @@ class Exercise(models.Model):
         self.completion_time = timezone.now()
         self.save()
 
-    def question_dictionary(self):
-        dictionary = []
-        for question_exercise in QuestionExercise.objects.filter(exercise=self):
-            dictionary.append(question_exercise.toDictionary())
-        return dictionary
 
+    @property
+    def passage_complete(self):
+        return (self.passage_stop_time is not None)
 
+    @property
+    def passage_started(self):
+        return (self.passage_start_time is not None)
 
     @property
     def is_complete(self):
-        return (completion_time is not None)
+        return (self.completion_time is not None)
 
     @property
     def duration_seconds(self):
@@ -219,14 +222,14 @@ class ComprehensionQuestion(models.Model):
     passage = models.ForeignKey(Passage)
     text = models.TextField()
     exercises = models.ManyToManyField(Exercise, through='QuestionExercise')
+    @property
+    def choices(self):
+        return ComprehensionChoice.objects.filter(question=self)
 
 class ComprehensionChoice(models.Model):
     question = models.ForeignKey(ComprehensionQuestion)
     correct = models.BooleanField(default=False)
     text = models.TextField()
-
-    def toDictionary(self):
-        return {'text': self.text, 'correct': self.correct}
 
 
 class QuestionExercise(models.Model):
@@ -246,10 +249,3 @@ class QuestionExercise(models.Model):
     question = models.ForeignKey(ComprehensionQuestion)
     exercise = models.ForeignKey(Exercise)
     status = models.SmallIntegerField(choices=STATUSES, default=UNATTEMPTED)
-
-    def toDictionary(self):
-        return {'id': self.id,
-                'question_text': self.question.text,
-                'status': self.status,
-                'choices': [choice.toDictionary() for choice in
-                    ComprehensionChoice.objects.filter(question=self.question)]}

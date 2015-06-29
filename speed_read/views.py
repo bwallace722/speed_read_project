@@ -7,7 +7,7 @@ from django.http import HttpResponse, HttpResponseRedirect
 from django.core.urlresolvers import reverse
 from django.http import JsonResponse
 
-from .models import TrainingSession as TS, Exercise, Passage
+from .models import TrainingSession as TS, Exercise, Passage, QuestionExercise
 
 @login_required
 def initial_view(request):
@@ -58,16 +58,77 @@ def generate_exercise_and_reroute(request):
 @login_required
 def section_view(request, session_id, exercise_id, section):
     """
-    Displays any of the sections' views
+    Dispatcher between the three section views.
     """
-    return render(request, 'speed_read/section.html', 
-                  {
-                  'status_url' : reverse('speed_read:exercise_status',
-                                         kwargs={'session_id' : session_id,
-                                                 'exercise_id' : exercise_id,
-                                                 'section' : section}),
-                  'section' : section,
-                  })
+    # checks whether this is the active section
+    verify_results = TS.verify_request(request, session_id,
+                                       exercise_id, section)
+    if section == 'passage':
+        return passage_view(request, verify_results)
+    elif section == 'comprehension':
+        return comprehension_view(request, verify_results)
+    elif section == 'results':
+        return results_view(request, verify_results)
+
+@login_required
+def passage_view(request, verify_results):
+    session = verify_results['session']
+    exercise = verify_results['exercise']
+    kwargs = {'session_id' : session.id,
+              'exercise_id' : exercise.id,
+              'section' : 'comprehension'}
+    next_link = reverse('speed_read:exercise', 
+                        kwargs = {'session_id' : session.id,
+                                  'exercise_id' : exercise.id,
+                                  'section' : 'comprehension'})
+    start_url = reverse('speed_read:passage_time',
+                        kwargs={'session_id' : session.id,
+                                'exercise_id' : exercise.id,
+                                'start_or_stop': 'start'})
+    stop_url = reverse('speed_read:passage_time',
+                        kwargs={'session_id' : session.id,
+                                'exercise_id' : exercise.id,
+                                'start_or_stop': 'stop'})
+    context = {'exercise': exercise,
+               'next_link' : next_link,
+               'start_url': start_url,
+               'stop_url': stop_url,
+               'active': verify_results['active']};
+    return render(request, 'speed_read/passage.html', context)
+
+@login_required
+def comprehension_view(request, verify_results):
+    exercise = verify_results['exercise']
+    next_link = reverse('speed_read:exercise',
+                        kwargs={'session_id' : verify_results['session'].id,
+                                'exercise_id' : exercise.id,
+                                'section' : 'results'})
+    status_link = reverse('speed_read:question_status',
+                          kwargs={'session_id': verify_results['session'].id,
+                                  'exercise_id': exercise.id,}
+    questions = QuestionExercise.objects.all()
+    context = {'next_link': next_link,
+               'status_link': status_link,
+               'exercise': exercise,
+               'questions': questions,
+               'active': verify_results['active']}
+
+    return render(request, 'speed_read/comprehension.html', context)
+
+@login_required
+def results_view(verify_results):
+
+    if session.get_continue_status:
+        next_link = reverse('speed_read:generate',                            
+                            kwargs={'session_id': session_id})
+    else:
+            next_link = reverse('speed_read:exit')
+    context = {'exercise': exercise,
+               'session': session,
+               'next_link': next_link,
+               'active': active}
+    return render(request, 'speed_read/passage.html', context)
+
 
 @login_required
 def passage_time(request, session_id, exercise_id, start_or_stop):
@@ -83,71 +144,9 @@ def passage_time(request, session_id, exercise_id, start_or_stop):
             verify_results['exercise'].stop_passage()
     return HttpResponse('success')
 
-@login_required
-def section_status(request, session_id, exercise_id, section):
-    """
-    Called from the passage_view's angular javascript session as
-    soon as the page loads. 
-    Returns the following json'd dictionary:
-    {
-    * is_visible : boolean <whether this is *this user's* current session>
-    * is_active : boolean <whether this is the active portion of
-                    the ongoing exercise>
-    * content : dictionary of section-specific content
-    * next_link : None or string <link to comprehension_questions>
-                  --I think we can just use a string...
-    }
-    """
-    # checks whether this is the active section
-    verify_results = TS.verify_request(request, session_id,
-                                       exercise_id, section)
-    exercise = verify_results['exercise']
-    visible = verify_results['visible']
-    active = verify_results['active']
-    session = verify_results['session']
-    #assign the right content
-    if section == 'passage':
-        start_url = reverse('speed_read:passage_time',
-                            kwargs={'session_id': session_id,
-                                    'exercise_id': exercise_id,
-                                    'start_or_stop': 'start'})
-        stop_url = reverse('speed_read:passage_time',
-                            kwargs={'session_id': session_id,
-                                    'exercise_id': exercise_id,
-                                    'start_or_stop': 'stop'})
-        content = {'text': exercise.passage.passage_text,
-                   'title': exercise.passage.passage_title,
-                   'instructions': 'example instructions',
-                   'start_url': start_url,
-                   'stop_url': stop_url};
-        next_link = reverse('speed_read:exercise',
-                             kwargs={'session_id' : session_id,
-                                     'exercise_id' : exercise_id,
-                                     'section' : 'comprehension'}),
-    elif section == 'comprehension':
-        content = exercise.question_dictionary()
-        next_link = reverse('speed_read:exercise',
-                             kwargs={'session_id' : session_id,
-                             'exercise_id' : exercise_id,
-                             'section' : 'results'}),
-    elif section == 'results':
-        content = {'wpm' : exercise.words_per_minute,
-                   'accuracy' : exercise.comprehension_accuracy,
-                   'success' : (exercise.comprehension_accuracy
-                                >= session.ACCURACY_THRESHOLD)}
-        if session.get_continue_status:
-            next_link = reverse('speed_read:generate',
-                                kwargs={'session_id': session_id})
-        else:
-            next_link = reverse('speed_read:exit')
 
-    response = {
-    'visible' : visible,
-    'active' : active,
-    'content' : content,
-    'next_link' : next_link,
-    }
-    return JsonResponse(response)
+def question_status(request, session_id, exercise_id):
+    return JsonResponse('received')
 
 
 @login_required

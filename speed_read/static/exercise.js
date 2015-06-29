@@ -8,52 +8,15 @@ app.config(function($httpProvider) {
 });
 
 
-app.controller('exercise', function($http, $compile, $element, $scope){
-            console.log('controller loaded.');
-            // first get the url from the directive element to ask
-            // about the server's status
-            var statusUrl = $element[0].attributes['status-url'].value;
-            var sectionType = $element[0].attributes['section'].value;
+app.controller('passage', function($http, $scope, $element, $compile){
+            $scope.started = (started == 'True')
+            $scope.stopped = (stopped == 'True')
+            $scope.startUrl = startUrl;
+            $scope.stopUrl = stopUrl;
 
-            $scope.isPassage = (sectionType === 'passage');
-            $scope.isComprehension = (sectionType === 'comprehension');
-            $scope.isResults =  (sectionType === 'results');
-
-
-            $http.get(statusUrl).
-            success(function(data, status, headers, config){
-                console.log('success');
-                $scope.isVisible = data['visible']
-
-                if ($scope.isVisible) {
-                    $scope.isActive = data['active']
-                    $scope.content = data['content']
-                    $scope.nextLink = data['next_link']
-                } else {
-                    console.log('invisible');
-                    console.log('redirect to landing page?');
-                }
-            }).
-            error(function(data, status, headers, config){
-                console.log('failure')
-                //this will eventually be taken out:
-                var newElement = angular.element(data);
-                newElement.insertAfter($element);
-                $compile(newElement)(scope);
-    })
-});
-
-
-app.directive('passage', function($window, $http){
-    return{
-        restrict: 'E',
-        templateUrl: '/static/passage.html',
-        controller: function($scope, $element){
-            $scope.started = false;
             $scope.start_passage = function(){
                 console.log('started')
-                $scope.started = true;
-                $http.post($scope.content.start_url).
+                $http.post($scope.startUrl).
                 success(function(){
                     console.log('posted start');
                 }).
@@ -62,27 +25,19 @@ app.directive('passage', function($window, $http){
                 //this will eventually be taken out:
                 var newElement = angular.element(data);
                 newElement.insertAfter($element);
-                $compile(newElement)(scope);
-    })
-            }
-            $scope.stop_passage = function(){
-                $http.post($scope.content.stop_url).
-                success(function(){
-                    console.log('posted stop');
-                    $window.location.href = $scope.nextLink;
+                $compile(newElement)($scope);
                 })
             }
-        },
-        controllerAs: 'passage'
-    }
+            $scope.stop_passage = function(){
+                $http.post($scope.stopUrl).
+                success(function(){
+                    console.log('posted stop');
+                })
+
+            }
 });
 
-app.directive('comprehension', function($window){
-    return {
-        restrict: 'E',
-        templateUrl: '/static/comprehension.html',
-        scope: false,
-        controller: function($scope){
+app.controller('comprehension', function($window, $scope, $http){
 
 
 
@@ -105,21 +60,47 @@ app.directive('comprehension', function($window){
 
             $scope.submitAnswer = function(question, correct) {
 
-            console.log($scope.nextLink)
-                if (correct) {
-                    question.status = 1;
-                } else {
-                    question.status = 0;
-                }
-                $scope.completedQuestions++;
-                console.log('answered: ' + question + ' ' + correct);
-            }
+                console.log($scope.nextLink)
+                    if (correct) {
+                        question.status = 1;
+                    } else {
+                        question.status = 0;
+                    }
+                    $scope.completedQuestions++;
+                    console.log('answered: ' + question + ' ' + correct);
+                    }
 
             $scope.next = function(){
                 $window.location.href = $scope.nextLink;
             }
+        });
+
+app.directive('question', function(){
+    return {
+        restrict: 'E',
+        template: '<div>{{ id }}{{ text }}</div><div ng-transclude></div>',
+        transclude: true,
+        controller: function($scope, $element, $attrs){
+            console.log('controller loaded');
+            $scope.text = $attrs['text'];
+            $scope.id = $attrs['id'];
+            $scope.status = $attrs['status'];
+            $scope.submit = function(question_id, correct){
+                
+            }
+        }
+    }
+})
+
+app.directive('choice', function(){
+    return {
+        scope: {},
+        restrict: 'E',
+        template: '<p><button></button></p>',
+        controller: function($scope, $element, $attrs){
+            console.log($scope.$parent.test);
         },
-    };
+    }
 });
 
 

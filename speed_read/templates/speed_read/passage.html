@@ -1,0 +1,37 @@
+<!-- This template is rendered by Django first -->
+
+{% extends "base.html" %}
+{% block title %}
+passage view
+{% endblock %}
+
+{% block content %}
+<p>active: {{ active }}</p>
+
+
+<h1>{{ exercise.passage.passage_title }}</h1>
+<h3>{{ exercise.passage.passage_instructions }}</h3>
+
+<script>
+    var startUrl='{{ start_url }}'
+    var started='{{ exercise.passage_started }}'
+    var stopUrl='{{ stop_url }}'
+    var stopped='{{ exercise.passage_complete }}'
+</script>
+
+<div ng-controller='passage'>
+
+<button ng-disabled="started"
+        ng-click="start_passage()">start</button>
+
+<div ng-show='started'>
+    <p>{{ exercise.passage.passage_text }}</p>
+    <button ng-disabled="stopped"
+            ng-click="stop_passage()">finish</button>
+    <a href={{ next_link }}>continue</a>
+</div>
+
+
+</div>
+
+{% endblock %}

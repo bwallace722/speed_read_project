@@ -5,10 +5,11 @@
 <div ng-repeat="i in indices">
     <br>
     <div ng-show="completedQuestions >= i">
-        <p>{{ content[i].question_text }}</p>
-        <div ng-repeat="choice in content[i].choices">
-            <button ng-click="submitAnswer(content[i], choice.correct)"
-                    ng-disabled="content[i].status!=2">{{ choice.text }}</button>
+        <p>{{ questions[i].question_text }}</p>
+        <div ng-repeat="choice in questions[i].choices">
+        <button ng-click="submitAnswer(questions[i], choice.correct)"
+                ng-disabled="questions[i].status!=2">{{ choice.text }}
+            </button>
         </div>
     </div>
 </div>
