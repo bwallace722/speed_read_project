@@ -5,6 +5,7 @@ from django.views import generic
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponse, HttpResponseRedirect
 from django.core.urlresolvers import reverse
+from django.http import JsonResponse
 
 from .models import TrainingSession as TS, Exercise, Passage
 
@@ -38,7 +39,7 @@ def session_landing(request):
         response += "you currently have no session"
     else:
         response += "you're in the middle of session: " + str(session.id)
-        exercise = session.get_current_exercise()
+        exercise = session.active_exercise
         if exercise is not None:
             response += ("<br>you're currently working on exercise: " +
                         str(exercise.id))
@@ -69,8 +70,84 @@ def section_view(request, session_id, exercise_id, section):
                   })
 
 @login_required
+def passage_time(request, session_id, exercise_id, start_or_stop):
+    print('passage start')
+    verify_results = TS.verify_request(request, session_id, 
+                                       exercise_id, 'passage')
+    if(verify_results['active']):
+        if start_or_stop == 'start':
+            print('started')
+            verify_results['exercise'].start_passage()
+        elif start_or_stop == 'stop':
+            print('calling stop_passage()')
+            verify_results['exercise'].stop_passage()
+    return HttpResponse('success')
+
+@login_required
 def section_status(request, session_id, exercise_id, section):
-    return TS.get_section_status(request, session_id, exercise_id, section)
+    """
+    Called from the passage_view's angular javascript session as
+    soon as the page loads. 
+    Returns the following json'd dictionary:
+    {
+    * is_visible : boolean <whether this is *this user's* current session>
+    * is_active : boolean <whether this is the active portion of
+                    the ongoing exercise>
+    * content : dictionary of section-specific content
+    * next_link : None or string <link to comprehension_questions>
+                  --I think we can just use a string...
+    }
+    """
+    # checks whether this is the active section
+    verify_results = TS.verify_request(request, session_id,
+                                       exercise_id, section)
+    exercise = verify_results['exercise']
+    visible = verify_results['visible']
+    active = verify_results['active']
+    session = verify_results['session']
+    #assign the right content
+    if section == 'passage':
+        start_url = reverse('speed_read:passage_time',
+                            kwargs={'session_id': session_id,
+                                    'exercise_id': exercise_id,
+                                    'start_or_stop': 'start'})
+        stop_url = reverse('speed_read:passage_time',
+                            kwargs={'session_id': session_id,
+                                    'exercise_id': exercise_id,
+                                    'start_or_stop': 'stop'})
+        content = {'text': exercise.passage.passage_text,
+                   'title': exercise.passage.passage_title,
+                   'instructions': 'example instructions',
+                   'start_url': start_url,
+                   'stop_url': stop_url};
+        next_link = reverse('speed_read:exercise',
+                             kwargs={'session_id' : session_id,
+                                     'exercise_id' : exercise_id,
+                                     'section' : 'comprehension'}),
+    elif section == 'comprehension':
+        content = exercise.question_dictionary()
+        next_link = reverse('speed_read:exercise',
+                             kwargs={'session_id' : session_id,
+                             'exercise_id' : exercise_id,
+                             'section' : 'results'}),
+    elif section == 'results':
+        content = {'wpm' : exercise.words_per_minute,
+                   'accuracy' : exercise.comprehension_accuracy,
+                   'success' : (exercise.comprehension_accuracy
+                                >= session.ACCURACY_THRESHOLD)}
+        if session.get_continue_status:
+            next_link = reverse('speed_read:generate',
+                                kwargs={'session_id': session_id})
+        else:
+            next_link = reverse('speed_read:exit')
+
+    response = {
+    'visible' : visible,
+    'active' : active,
+    'content' : content,
+    'next_link' : next_link,
+    }
+    return JsonResponse(response)
 
 
 @login_required

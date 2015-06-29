@@ -1,6 +1,12 @@
 (function (){
 
-var app = angular.module('exercise', [])
+var app = angular.module('exercise', ['ngCookies'])
+
+app.config(function($httpProvider) {
+    $httpProvider.defaults.xsrfCookieName = 'csrftoken';
+    $httpProvider.defaults.xsrfHeaderName = 'X-CSRFToken';
+});
+
 
 app.controller('exercise', function($http, $compile, $element, $scope){
             console.log('controller loaded.');
@@ -17,13 +23,12 @@ app.controller('exercise', function($http, $compile, $element, $scope){
             $http.get(statusUrl).
             success(function(data, status, headers, config){
                 console.log('success');
-                var isVisible = data['visible']
+                $scope.isVisible = data['visible']
 
-                if (true || isVisible) {
+                if (true || $scope.isVisible) {
                     $scope.isActive = data['active']
                     $scope.content = data['content']
                     $scope.nextLink = data['next_link']
-                    console.log($scope.nextLink);
                     if (true || isActive) {
 
 
@@ -45,37 +50,89 @@ app.controller('exercise', function($http, $compile, $element, $scope){
 });
 
 
-app.directive('passage', function($window){
+app.directive('passage', function($window, $http){
     return{
         restrict: 'E',
         templateUrl: '/static/passage.html',
-        controller: function($scope){
+        controller: function($scope, $element){
             $scope.started = false;
             $scope.start_passage = function(){
                 console.log('started')
                 $scope.started = true;
+                $http.post($scope.content.start_url).
+                success(function(){
+                    console.log('posted start');
+                }).
+            error(function(data, status, headers, config){
+                console.log('failure')
+                //this will eventually be taken out:
+                var newElement = angular.element(data);
+                newElement.insertAfter($element);
+                $compile(newElement)(scope);
+    })
             }
             $scope.stop_passage = function(){
-                $window.location.href = $scope.nextLink;
+                $http.post($scope.content.stop_url).
+                success(function(){
+                    console.log('posted stop');
+                    $window.location.href = $scope.nextLink;
+                })
             }
         },
         controllerAs: 'passage'
     }
 });
 
-app.directive('comprehension', function(){
+app.directive('comprehension', function($window){
     return {
         restrict: 'E',
-        template: '<p>comprehension directive</p><p>{{ content }}</p>',
-        link: function(element, scope, attrs){
+        templateUrl: '/static/comprehension.html',
+        scope: false,
+        controller: function($scope){
+
+
+
+            //we have to wrap this functionality in a $watch so that
+            //it gets run AFTER the asynchronous http request
+            $scope.completedQuestions = 0;
+            $scope.indices = [];
+
+            $scope.$watch(function(){return $scope.content},
+                          function(){
+                            var i = 0;
+                            for (var v in $scope.content) {
+                                $scope.indices.push(i);
+                                if ($scope.content[i].status != 2) {
+                                    $scope.completedQuestions++;
+                                }
+                            i++;
+                            }
+                          });
+
+            $scope.submitAnswer = function(question, correct) {
+
+            console.log($scope.nextLink)
+                if (correct) {
+                    question.status = 1;
+                } else {
+                    question.status = 0;
+                }
+                $scope.completedQuestions++;
+                console.log('answered: ' + question + ' ' + correct);
+            }
+
+            $scope.next = function(){
+                $window.location.href = $scope.nextLink;
+            }
         },
     };
 });
 
+
 app.directive('results', function(){
     return {
         restrict: 'E',
-        template: '<p>results directive</p>'
+        templateUrl: '/static/results.html'
     };
 });
 

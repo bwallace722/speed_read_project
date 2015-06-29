@@ -1,0 +1,18 @@
+<p>visible: {{ isVisible }}</p>
+<p>active: {{ isActive }}</p>
+
+
+<div ng-repeat="i in indices">
+    <br>
+    <div ng-show="completedQuestions >= i">
+        <p>{{ content[i].question_text }}</p>
+        <div ng-repeat="choice in content[i].choices">
+            <button ng-click="submitAnswer(content[i], choice.correct)"
+                    ng-disabled="content[i].status!=2">{{ choice.text }}</button>
+        </div>
+    </div>
+</div>
+<br>
+<div>
+    <button ng-click="next()" ng-show="completedQuestions >= indices.length">next</button>
+</div>
