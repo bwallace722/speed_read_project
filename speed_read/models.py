@@ -5,6 +5,8 @@ from django.db import models
 from django.utils.encoding import python_2_unicode_compatible
 from django.utils import timezone
 from django.utils.translation import ugettext as _, ugettext_lazy as __
+from django.http import JsonResponse
+from django.core.urlresolvers import reverse
 
 
 
@@ -17,7 +19,7 @@ class TrainingSession(models.Model):
     functions in the view) as the Controller.
     When the training session begins, a TrainingSession object
     is created and immediately generates and 
-    assigns exercises (see models.py).
+    assigns the first Exercise.
     As the user completes their readings and comprehension
     questions, their progress is tracked here.
     """
@@ -35,7 +37,7 @@ class TrainingSession(models.Model):
 
 
     @staticmethod
-    def get_current_session(request):
+    def find_training_session(request):
         """
         Finds the request's user and gets the current TrainingSession.
         TODO: should make some verifications here
@@ -47,56 +49,78 @@ class TrainingSession(models.Model):
         else:
             return sessions[0]
 
-    def get_next_passage(self):
-        """
-        Updates this object's status and returns the next reading passage.
-        This should ONLY be called from within the passage view.
-        """
-        return "This is an example passage."
 
-    def receive_passage_start(self, passage_start):
-        pass
-
-    def receive_passage_end(self, passage_end):
-        pass
-
-    def get_next_questions(self):
+    @staticmethod
+    def get_section_status(request, session_id, exercise_id, section):
         """
-        Updates this object's status and returns the next comprehension
-        questions.  This should ONLY be called from within the 
-        comprehension view.
+        Called from the passage_view's angular javascript session as
+        soon as the page loads. Verifies the request by comparing the
+        session_id and exercise_id from the url (the inputs to this
+        function) against the ones that can be found by checking for
+        the request's session's user's TrainingSession.
+        Returns the following json'd dictionary:
+        {
+        * is_visible : boolean <whether this is *this user's* current session>
+        * is_active : boolean <whether this is the active portion of
+                        the ongoing exercise>
+        * content : dictionary of section-specific content
+        * next_link : None or string <link to comprehension_questions>
+                      --I think we can just use a string...
+        }
         """
-        return "Example questions."
-
-    def receive_question_results(self, results):
-        pass
-
-    def get_next_results(self):
-        """
-        Returns the dictionary saved as 'results' by the results view.
-        Results must have a 'success' entry that is either True or
-        False. 
-        """
-        exercise = self.active_exercise
-        #-----if (exercise.passage_is_complete and
-        #-----    exercise.questions_are_complete):
-        if True:
-            # check off current exercise:
-            #-----exercise.completed()
-            # it's no longer active:
-            self.active_exercise = None
-            # check whether the exercise was successful
-            wpm = 30 #exercise.words_per_minute
-            accuracy = 0.8 #exercise.comprehension_accuracy
-            success = (accuracy >= self.ACCURACY_THRESHOLD)
-            results = {"wpm": wpm, "accuracy": accuracy, "success": success}
-            return results
+        # checks whether this is the active section
+        session = TrainingSession.find_training_session(request)
+        if session is not None:
+            exercise = session.get_current_exercise()
         else:
-            # TODO:
-            return None
+            exercise = None
+        visible = (session is not None and str(session.id) == session_id and
+                   exercise is not None and str(exercise.id) == exercise_id)
+        active = visible and session.is_active_section(section)
 
+        #assign the right content
+        if section == 'passage':
+            content = {'text': exercise.passage.passage_text,
+                       'title': exercise.passage.passage_title,
+                       'instructions': 'example instructions'};
+            next_link = reverse('speed_read:exercise',
+                                 kwargs={'session_id' : session_id,
+                                         'exercise_id' : exercise_id,
+                                         'section' : 'comprehension'}),
+        elif section == 'comprehension':
+            content = exercise.question_dictionary()
+            next_link = reverse('speed_read:exercise',
+                                 kwargs={'session_id' : session_id,
+                                 'exercise_id' : exercise_id,
+                                 'section' : 'results'}),
+        elif section == 'results':
+            content = {'wpm' : exercise.words_per_minute,
+                       'accuracy' : exercise.comprehension_accuracy,
+                       'success' : (exercise.comprehension_accuracy
+                                    >= self.ACCURACY_THRESHOLD)}
+            next_link = 'still thinking about this one'
 
+        response = {
+        'visible' : visible,
+        'active' : active,
+        'content' : content,
+        'next_link' : next_link,
+        }
+        return JsonResponse(response)
 
+    @staticmethod
+    def receive_passage_update(request, session_id, exercise_id):
+        pass
+
+    @staticmethod
+    def receive_question_update(request, session_id, exercise_id):
+        pass
+            
+    def get_current_exercise(self):
+        return self.active_exercise
+
+    def is_active_section(self, section):
+        return True #section=='passage'
 
     def get_continue_status(self):
         """ 
@@ -104,6 +128,9 @@ class TrainingSession(models.Model):
         session is over.
         """
         return True
+
+    def __str__(self):
+        return "session: " + str(self.id) + " for user: " + str(self.user)
 
 
 @python_2_unicode_compatible
@@ -170,9 +197,13 @@ class Exercise(models.Model):
         # translation on the other side
         completion_time = timezone.now()
 
+    def question_dictionary(self):
+        dictionary = []
+        for question_exercise in QuestionExercise.objects.filter(exercise=self):
+            dictionary.append(question_exercise.toDictionary())
+        return dictionary
 
-    def __str__(self):
-        return str(self.user) + ": " + str(self.words_per_minute) + " wpm"
+
 
     @property
     def is_complete(self):
@@ -201,6 +232,10 @@ class Exercise(models.Model):
         """
         return None
 
+    def __str__(self):
+        return ("exercise: " + str(self.id) +
+                " for " + str(self.training_session))
+
 
 
 
@@ -213,7 +248,16 @@ class ComprehensionQuestion(models.Model):
     will have a randomly selected subset of 5 of them.
     """
     passage = models.ForeignKey(Passage)
+    text = models.TextField()
     exercises = models.ManyToManyField(Exercise, through='QuestionExercise')
+
+class ComprehensionChoice(models.Model):
+    question = models.ForeignKey(ComprehensionQuestion)
+    correct = models.BooleanField(default=False)
+    text = models.TextField()
+
+    def toDictionary(self):
+        return {'text': self.text, 'correct': self.correct}
 
 
 class QuestionExercise(models.Model):
@@ -233,3 +277,10 @@ class QuestionExercise(models.Model):
     question = models.ForeignKey(ComprehensionQuestion)
     exercise = models.ForeignKey(Exercise)
     status = models.SmallIntegerField(choices=STATUSES, default=UNATTEMPTED)
+
+    def toDictionary(self):
+        return {'id': self.id,
+                'question_text': self.question.text,
+                'status': status,
+                'choices': [choice.toDictionary for choice in
+                    ComprehensionChoice.objects.filter(question=self.question)]}
