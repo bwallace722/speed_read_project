@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}
+passage view
+{% endblock %}
+
+{% block content %}
+
+
+<p>
+This is the {{ section }} view.
+</p>
+
+<div ng-controller='exercise'status-url={{ status_url }} section={{ section }}>
+    <passage ng-if="isPassage"></passage>
+    <comprehension ng-if="isComprehension"></comprehension>
+    <results ng-if="isResults"></results>
+</div>
+
+{% endblock %}

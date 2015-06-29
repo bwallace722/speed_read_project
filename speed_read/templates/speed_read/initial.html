@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}
+Initial view
+{% endblock %}
+
+{% block content %}
+
+{% if error_message %}
+<p>{{ error_message }}</p>
+
+<a href='{% url "speed_read:generate" %}?session_id={{ session_id }} '>continue</a>
+
+{% else %}
+
+<p>
+Welcome to the speed reading Trainer.  Click the button to begin.
+</p>
+<a href='{% url "speed_read:generate" %}'>begin</a>
+
+{% endif %}
+
+{% endblock %}

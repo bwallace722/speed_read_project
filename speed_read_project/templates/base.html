@@ -1,0 +1,27 @@
+<!-- This is just a filler base.html -->
+<!-- Ultimately this will reference chalktalk's base.html -->
+
+<!DOCTYPE html>
+<html lang="en">
+
+{% load staticfiles %}
+
+<link rel="stylesheet" type="text/css" 
+      href="{% static 'bootstrap.css' %}" />
+<script src="{% static 'jquery-2.1.4.min.js' %}"></script>
+<script src="{% static 'Chart.js' %}"></script>
+<script src="{% static 'bootstrap.js' %}"></script>
+<script src="{% static 'angular.min.js' %}"></script>
+<script src="{% static 'exercise.js' %}"></script>
+
+<head>
+    <title>{% block title %}{% endblock %}</title>
+</head>
+<body ng-app="exercise">
+
+    {% block content %}
+    {% endblock %}
+
+
+</body>
+</html>

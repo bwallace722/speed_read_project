@@ -1,0 +1,10 @@
+<h1>{{ content.title }}</h1>
+<h3>{{ content.instructions }}</h3>
+
+<button ng-click="start_passage()">start</button>
+
+<div ng-show='started'>
+    <p>{{ content.text }}</p>
+    <button ng-click="stop_passage()">finish</button>
+</div>
+
