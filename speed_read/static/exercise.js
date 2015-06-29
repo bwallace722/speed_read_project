@@ -25,16 +25,10 @@ app.controller('exercise', function($http, $compile, $element, $scope){
                 console.log('success');
                 $scope.isVisible = data['visible']
 
-                if (true || $scope.isVisible) {
+                if ($scope.isVisible) {
                     $scope.isActive = data['active']
                     $scope.content = data['content']
                     $scope.nextLink = data['next_link']
-                    if (true || isActive) {
-
-
-                    }
-                    else {
-                    }
                 } else {
                     console.log('invisible');
                     console.log('redirect to landing page?');
