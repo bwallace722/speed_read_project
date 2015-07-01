@@ -16,5 +16,5 @@ urlpatterns = [
         views.passage_time, name='passage_time'),
     url(r'^(?P<session_id>[0-9]+)/(?P<exercise_id>[0-9]+)/question_status/$', 
         views.question_status, name='question_status'),
-    url(r'^exit/$', views.exit_portal, name='exit'),
+    url(r'^(?P<session_id>[0-9]+)/exit/$', views.exit_portal, name='exit'),
 ]

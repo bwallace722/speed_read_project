@@ -154,12 +154,34 @@ class BasicTrainingSession(TestCase):
 class BasicAutomatedTrainingSession(TestCase):
     def setUp(self):
         self.u = User.objects.create()
-        self.session = TrainingSession.objects.create(user=self.u)
+        self.session1 = TrainingSession.objects.create(user=self.u, exercises_to_complete=1)
         self.passage1 = Passage.objects.create(passage_title='', passage_text='one')
         self.q1 = ComprehensionQuestion.objects.create(passage=self.passage1, text='')
         self.q2 = ComprehensionQuestion.objects.create(passage=self.passage1, text='')
 
     def test_automatic_exercise(self):
-        self.session.generate_exercise()
+        self.session1.generate_exercise()
+        #check before we read the passage
+        self.assertFalse(self.session1.is_complete)
+        self.assertEqual(self.session1.completed_exercises, 0)
+        self.assertEqual(self.session1.get_active_section(), 'passage')
+        #read the passage and check again
+        self.session1.active_exercise.start_passage()
+        self.session1.active_exercise.stop_passage()
+        self.assertTrue(self.session1.active_exercise.passage_started)
+        self.assertTrue(self.session1.active_exercise.passage_complete)
+        self.assertFalse(self.session1.is_complete)
+        self.assertEqual(self.session1.completed_exercises, 0)
+        self.assertEqual(self.session1.get_active_section(), 'comprehension')
+        #answer the questions and check again
+        qes = QuestionExercise.objects.filter(exercise=self.session1.active_exercise)
+        for q in qes:
+            self.session1.active_exercise.check_off(q, True)
+        #exercise should be complete now:
+        self.assertTrue(self.session1.active_exercise.is_complete)
+        self.assertEqual(self.session1.get_active_section(), 'results')
+        #should be completed now:
+        self.assertEqual(self.session1.completed_exercises, 1)
+        self.assertTrue(self.session1.is_complete)
 
         

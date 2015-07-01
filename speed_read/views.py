@@ -23,13 +23,7 @@ def initial_view(request):
     # check whether this is the appropriate session:
     template_name = 'speed_read/initial.html'
     session = TS.find_training_session(request)
-    print("session: ", session)
-    print("session.is_complete: ", session.is_complete)
-    session.check_completion()
     if session is None or session.is_complete:
-        user = request.user
-        session = TS(user=user)
-        session.save()
         context = {
             'next_link': reverse('speed_read:generate'),
         }
@@ -55,6 +49,7 @@ def session_landing(request):
         if exercise is not None:
             response += ("<br>you're currently working on exercise: " +
                         str(exercise.id))
+            response += ("<br>this section is active: " + session.get_active_section())
     return HttpResponse(response)
 
 
@@ -132,7 +127,8 @@ def results_view(request, verify_results):
     if not session.is_complete:
         next_link = reverse('speed_read:generate')
     else:
-        next_link = reverse('speed_read:exit')
+        next_link = reverse('speed_read:exit', 
+                            kwargs={'session_id': session.id})
     context = {'exercise': exercise,
                'session': session,
                'next_link': next_link,
@@ -149,6 +145,8 @@ def generate_exercise_and_reroute(request):
     session and then send the user to that start that exercise.
     """
     session = TS.find_training_session(request)
+    if session is None:
+        session = TS.objects.create(user=request.user, exercises_to_complete=1)
     #either they haven't started or they finished the last one
     if session.active_exercise is None or session.active_exercise.is_complete:
         session.generate_exercise()
@@ -186,5 +184,11 @@ def question_status(request, session_id, exercise_id):
 
 @never_cache
 @login_required
-def exit_portal(request):
-    return HttpResponse("this is the exit page")
+def exit_portal(request, session_id):
+    session = TS.find_training_session(request)
+    if session is not None and str(session.id) == str(session_id) and session.is_complete:
+        session.close()
+        return HttpResponse("this is the exit page")
+    else:
+        print(session.id, session_id)
+        return redirect('speed_read:landing')

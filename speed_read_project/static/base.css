@@ -1,0 +1,149 @@
+h1, h2, h3, h4, h5, h6 {
+  font-weight:600;
+}
+
+h1 {
+  margin-bottom:20px;
+}
+
+#nav {
+  width:100%;
+  background-color: #f5a623;
+  margin-bottom:0;
+}
+
+#nav,
+#nav button,
+#nav-collapsible {
+  border-color: #f5a623;
+}
+
+#nav a {
+  color: #fff;
+  -webkit-transition: 0.3s ease-in-out;
+  -moz-transition: 0.3s ease-in-out;
+  -o-transition: 0.3s ease-in-out;
+  transition: 0.3s ease-in-out;
+}
+
+#nav a,
+#nav button {
+  opacity:0.7;
+}
+
+#nav a:hover {
+  opacity:1;
+}
+
+#ch-content-body {
+  margin-top:30px;
+  margin-bottom:30px;
+}
+
+#footer {
+  color: #5f6a7d;
+  font-size: 14px;
+  font-weight: 600px;
+  padding: 30px 0;
+  white-space:nowrap;
+}
+
+#footer .footer-copy {
+  line-height:30px;
+}
+
+#footer .footer-divider {
+  display:inline-block;
+  vertical-align:middle;
+  width:1px;
+  margin:0 8px;
+  background:#5F6A7D;
+  height:30px;
+}
+
+#footer button.feedback {
+  background:#f5a623;
+}
+
+#footer .boston {
+  position: relative;
+  bottom: 3px;
+}
+
+.love {
+  color: #e74c3c;
+  font-size: 24px;
+  position: relative;
+  top: 2px;
+}
+
+#feedback-modal {
+  padding:12px;
+}
+
+ul.messages {
+  margin-top:5px;
+}
+
+ul.messages li {  
+  padding:8px;
+  margin-bottom:5px;
+}
+
+ul.messages li.error {
+  background:#fdd;
+  border: 1px solid #f00;
+}
+
+ul.messages li.warning {
+  background:#ffd;
+  border:1px solid #ff0;
+}
+
+ul.messages li.success {
+  background:#dfd;
+  border:1px solid #0f0;
+}
+
+ul.messages li.info {
+  background:#ddf;
+  border:1px solid #00f;
+}
+
+ul.messages li.debug {
+  background:#fdf;
+  border:1px solid #f0f;
+}
+
+ul.errorlist {
+  list-style-type:none;
+  padding-left:0;
+}
+
+ul.errorlist li {
+  background:#fdf;
+  border:1px solid #f0f;
+  margin-bottom:5px;
+  padding:8px;
+}
+
+label {
+  font-weight:normal;
+}
+
+[ng\:cloak], [ng-cloak], [data-ng-cloak], [x-ng-cloak], .ng-cloak, .x-ng-cloak {
+  display: none !important;
+}
+
+.django-ckeditor-widget {
+  display:block !important;
+}
+
+/* ckeditor annoying hack */
+.asset-form .left-fields>div {
+  margin-left:0 !important;
+}
+
+.tab-content {
+  padding:16px;
+}

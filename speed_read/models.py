@@ -35,6 +35,9 @@ class TrainingSession(models.Model):
     accuracy_threshold = models.FloatField(default=ACCURACY_THRESHOLD)
     exercises_to_complete = models.SmallIntegerField(
         default=EXERCISES_TO_COMPLETE)
+    # this switches to true when the student exits their results page--
+    # it means they've completed the last exercise AND exited
+    closed = models.BooleanField(default=False)
 
 
     @staticmethod
@@ -44,7 +47,7 @@ class TrainingSession(models.Model):
         TODO: should make some verifications here
         """
         sessions = TrainingSession.objects.filter(
-            user=request.user, completion_time=None)
+            user=request.user, closed=False)
         if len(sessions) == 0:
             return None
         else:
@@ -80,6 +83,10 @@ class TrainingSession(models.Model):
                 'visible': visible,
                 'active': active}
 
+    def close(self):
+        self.closed = True
+        self.save()
+
     def generate_exercise(self):
         # 1. choose a passage
         # we only exclude passages that have been used in THIS training
@@ -96,18 +103,18 @@ class TrainingSession(models.Model):
 
         # 3. instantiate the exercise and attach it to the session,
         # attach the questions
-        new_exercise = Exercise(passage=passage, training_session=self)
+        new_exercise = Exercise.objects.create(passage=passage, training_session=self)
         new_exercise.save()
         self.active_exercise = new_exercise
         self.save()
         for q in questions:
-            QuestionExercise(question=q, exercise=new_exercise).save()
+            QuestionExercise.objects.create(question=q, exercise=new_exercise)
 
 
     def get_active_section(self):
-        if self.active_exercise.passage_stop_time is None:
+        if not self.active_exercise.passage_complete:
             return 'passage'
-        elif self.active_exercise.completion_time is None:
+        elif not self.active_exercise.is_complete:
             return 'comprehension'
         else:
             return 'results'
@@ -119,7 +126,6 @@ class TrainingSession(models.Model):
 
     @property
     def is_complete(self):
-        print("self.completion_time", self.completion_time)
         return self.completion_time is not None
 
     @property
@@ -204,9 +210,8 @@ class Exercise(models.Model):
                         if q.status == QuestionExercise.UNATTEMPTED]
         if len(unanswered) == 0:
             self.completion_time = timezone.now()
-            self.training_session.check_completion()
             self.save()
-
+            self.training_session.check_completion()
 
     @property
     def passage_complete(self):

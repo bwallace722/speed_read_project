@@ -5,6 +5,7 @@ Initial view
 
 {% block content %}
 
+
 {% if error_message %}
 <p>{{ error_message }}</p>
 
@@ -12,10 +13,14 @@ Initial view
 
 {% else %}
 
-<p>
-Welcome to the speed reading Trainer.  Click the button to begin.
-</p>
-<a href={{ next_link }}>begin</a>
+<div class="container">
+    <div class="jumbotron">
+        <h1>Speed Read Trainer</h1>
+        <p class="lead">Click the button to begin.</p>
+        <a class="btn btn-large btn-success" href={{next_link}}>Begin Training</a>
+    </div>
+</div>
+
 
 {% endif %}
 
