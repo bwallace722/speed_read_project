@@ -7,12 +7,12 @@ from django.contrib.auth.decorators import login_required
 from django.http import HttpResponse, HttpResponseRedirect
 from django.core.urlresolvers import reverse
 from django.http import JsonResponse
-from django.views.decorators.cache import never_cache
+from django.views.decorators.cache import cache_control
 
 from .models import TrainingSession as TS, Exercise, Passage, QuestionExercise
 
 
-@never_cache
+@cache_control(must_revalidate=True, no_cache=True)
 @login_required
 def initial_view(request):
     """
@@ -34,26 +34,16 @@ def initial_view(request):
             {"error_message" :
             "It looks like you're already in the middle of a session."})
 
-@never_cache
+@cache_control(must_revalidate=True, no_cache=True)
 @login_required
 def session_landing(request):
     """This is the page we should redirect to when users enter a bad url."""
     # TODO move html into a template and make it look good
-    session = TS.find_training_session(request)
-    response = "<p>session landing</p>"
-    if session is None:
-        response += "you currently have no session"
-    else:
-        response += "you're in the middle of session: " + str(session.id)
-        exercise = session.active_exercise
-        if exercise is not None:
-            response += ("<br>you're currently working on exercise: " +
-                        str(exercise.id))
-            response += ("<br>this section is active: " + session.get_active_section())
-    return HttpResponse(response)
+    context = {'resume_link': reverse('speed_read:resume')}
+    return render(request, 'speed_read/landing.html', context)
 
 
-@never_cache
+@cache_control(must_revalidate=True, no_cache=True)
 @login_required
 def section_view(request, session_id, exercise_id, section):
     """
@@ -73,7 +63,7 @@ def section_view(request, session_id, exercise_id, section):
         return redirect('speed_read:landing')
 
 
-@never_cache
+@cache_control(must_revalidate=True, no_cache=True)
 @login_required
 def passage_view(request, verify_results):
     session = verify_results['session']
@@ -97,10 +87,10 @@ def passage_view(request, verify_results):
                'next_link' : next_link,
                'start_url': start_url,
                'stop_url': stop_url,
-               'active': verify_results['active']};
+               'inactive': not verify_results['active']};
     return render(request, 'speed_read/passage.html', context)
 
-@never_cache
+@cache_control(must_revalidate=True, no_cache=True)
 @login_required
 def comprehension_view(request, verify_results):
     exercise = verify_results['exercise']
@@ -116,7 +106,7 @@ def comprehension_view(request, verify_results):
                'status_link': status_link,
                'exercise': exercise,
                'questions': questions,
-               'active': verify_results['active']}
+               'inactive': not verify_results['active']}
 
     return render(request, 'speed_read/comprehension.html', context)
 
@@ -132,11 +122,11 @@ def results_view(request, verify_results):
     context = {'exercise': exercise,
                'session': session,
                'next_link': next_link,
-               'active': verify_results['active']}
+               'inactive': not verify_results['active']}
     return render(request, 'speed_read/results.html', context)
 
 
-@never_cache
+@cache_control(must_revalidate=True, no_cache=True)
 @login_required
 def generate_exercise_and_reroute(request):
     """
@@ -157,7 +147,7 @@ def generate_exercise_and_reroute(request):
         return HttpResponse('404?')
 
 
-@never_cache
+@cache_control(must_revalidate=True, no_cache=True)
 @login_required
 def passage_time(request, session_id, exercise_id, start_or_stop):
     verify_results = TS.verify_request(request, session_id, 
@@ -172,7 +162,7 @@ def passage_time(request, session_id, exercise_id, start_or_stop):
             return HttpResponse('success')
 
 
-@never_cache
+@cache_control(must_revalidate=True, no_cache=True)
 def question_status(request, session_id, exercise_id):
     if request.method == 'POST':
         id = int(request.POST['question_id'])
@@ -182,13 +172,33 @@ def question_status(request, session_id, exercise_id):
         exercise.check_off(question_exercise, correct)
         return HttpResponse('received')
 
-@never_cache
+@cache_control(must_revalidate=True, no_cache=True)
 @login_required
 def exit_portal(request, session_id):
     session = TS.find_training_session(request)
-    if session is not None and str(session.id) == str(session_id) and session.is_complete:
-        session.close()
-        return HttpResponse("this is the exit page")
-    else:
-        print(session.id, session_id)
+    if session is None:
         return redirect('speed_read:landing')
+    else:
+        if str(session.id) == str(session_id) and session.is_complete:
+            session.close()
+            return HttpResponse("this is the exit page")
+    
+
+@cache_control(must_revalidate=True, no_cache=True)
+@login_required
+def resume(request):
+    session = TS.find_training_session(request)
+    if session is None:
+        return redirect('speed_read:initial')
+    else:
+        exercise = session.active_exercise
+        if exercise is None:
+            #this really shouldn't ever happen:
+            print('active exercise was None in views.resume')
+            return redirect('speed_read:initial')
+        else:
+            section = session.get_active_section()
+            return redirect('speed_read:exercise',
+                            section=section,
+                            session_id=session.id,
+                            exercise_id=exercise.id)

@@ -168,7 +168,10 @@ class Passage(models.Model):
 
     @property
     def passage_instructions(self):
-        return 'example instructions'
+        return ('When you press \'start\', a reading passage will appear.'
+                +' Read it as quickly as you can, and then press \'stop\'.'
+                +' This will bring you to the next page to answer a few '
+                +' comprehension questions.' )
 
 
 class Exercise(models.Model):

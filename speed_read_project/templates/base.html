@@ -6,6 +6,24 @@
 
 {% load staticfiles %}
 
+<head>
+    <title>{% block title %}{% endblock %}</title>
+</head>
+<body ng-app="exercise">
+
+    {% if inactive %}
+    <div class="well">
+        <p>
+            You've already completed this section.  
+            Click <a href={% url 'speed_read:resume' %}>here</a> to continue where you left off.
+        </p>
+    </div>
+    {% endif %}
+
+
+    {% block content %}
+    {% endblock %}
+
 <link rel="stylesheet" type="text/css" 
       href="{% static 'bootstrap.css' %}" />
 <script src="{% static 'jquery-2.1.4.min.js' %}"></script>
@@ -16,14 +34,6 @@
 <script src="{% static 'exercise.js' %}"></script>
 <link rel="stylesheet" type="text/css" href="{% static 'base.css' %}" />
 <link rel="stylesheet" type="text/css" href="{% static 'speed_read.css' %}" />
-
-<head>
-    <title>{% block title %}{% endblock %}</title>
-</head>
-<body ng-app="exercise">
-
-    {% block content %}
-    {% endblock %}
 
 
 </body>

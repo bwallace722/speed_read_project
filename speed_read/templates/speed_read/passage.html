@@ -2,36 +2,42 @@
 
 {% extends "base.html" %}
 {% block title %}
-passage view
+passage
 {% endblock %}
 
 {% block content %}
-<p>active: {{ active }}</p>
 
-
-<h1>{{ exercise.passage.passage_title }}</h1>
-<h3>{{ exercise.passage.passage_instructions }}</h3>
 
 <script>
     var startUrl='{{ start_url }}'
     var started='{{ exercise.passage_started }}'
     var stopUrl='{{ stop_url }}'
     var stopped='{{ exercise.passage_complete }}'
+    var nextUrl='{{ next_link }}'
 </script>
 
-<div ng-controller='passage'>
+<div class="container-fluid" ng-controller='passage'>
+<div class="row-fluid">
+    <div id="passage-text" class="col-md-8 col-md-offset-2">
 
-<button ng-disabled="started"
-        ng-click="start_passage()">start</button>
+        <h1>Passage Reading</h1>
+        <h5>{{ exercise.passage.passage_instructions }}</h5>
 
-<div ng-show='started'>
-    <p>{{ exercise.passage.passage_text }}</p>
-    <button ng-disabled="stopped"
-            ng-click="stop_passage()">finish</button>
-    <a href={{ next_link }}>continue</a>
+        <a class="btn btn-large btn-success"
+           ng-disabled="started"
+           ng-click="start_passage()">start</a>
+        <div ng-show='started'>
+            <div id="wrapper">
+                <div id="text">{{ exercise.passage.passage_text }}</div>
+                <canvas id="lines-canvas"></canvas>
+            </div>
+            <a class="btn btn-large btn-success" ng-disabled="stopped"
+                    ng-click="stop_passage()">stop</a>
+        </div>
+    </div>
+    <div class="col-md-3">
+    </div>
 </div>
-
-
 </div>
 
 {% endblock %}

@@ -6,18 +6,19 @@ comprehension
 {% endblock %}
 
 {% block content %}
-<p>active: {{ active }}</p>
 
 
 <script>
     var statusLink='{{ status_link }}'
 </script>
 
-<div ng-controller='comprehension'>
-
+<div class='container' ng-controller='comprehension'>
+<div class='row'>
+<div class='col-md-8 col-md-offset-2'>
 {% for question in questions %}
 
-    <div ng-controller="question"      
+    <div class='question'
+         ng-controller="question"      
          id="{{ question.id }}"
          status="{{ question.status }}"
          ng-show="this_question.visible">
@@ -27,7 +28,8 @@ comprehension
          </p>
     
         {% for choice in question.question.choices %}
-            <button ng-controller='choice'
+            <button class='btn-block choice btn-primary'
+                    ng-controller='choice'
                     correct="{{ choice.correct }}"
                     ng-click="click()"
                     ng-disabled="status!=2">{{ choice.text }}</button>
@@ -37,8 +39,9 @@ comprehension
 
 
 {% endfor %}
+</div>
     <a ng-show="showNextLink" href={{ next_link }}>next page</a>
-
+</div>
 </div>
 
 {% endblock %}

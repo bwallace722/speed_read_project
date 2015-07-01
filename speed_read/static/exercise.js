@@ -19,11 +19,13 @@ app.config(function ($httpProvider) {
 });
 
 
-app.controller('passage', function($http, $scope, $element, $compile){
+app.controller('passage',
+    function($http, $scope, $element, $compile, $window){
     $scope.started = (started == 'True')
     $scope.stopped = (stopped == 'True')
     $scope.startUrl = startUrl;
     $scope.stopUrl = stopUrl;
+    $scope.nextUrl = nextUrl;
 
     $scope.start_passage = function(){
         console.log('started')
@@ -53,6 +55,8 @@ app.controller('passage', function($http, $scope, $element, $compile){
             data: {}})
         .success(function(){
             console.log('posted stop');
+            console.log($scope.nextUrl)
+            $window.location.href = $scope.nextUrl
             })
         }
 });
@@ -80,7 +84,8 @@ app.controller('comprehension', function($element, $rootScope, $scope){
     }
 });
 
-app.controller('question', function($rootScope, $scope, $element, $attrs, $http){
+app.controller('question',
+    function($rootScope, $scope, $element, $attrs, $http){
     $scope.question_id = $attrs['id'];
     $scope.status = $attrs['status'];
     $scope.visible = ($scope.status != '2');
@@ -115,14 +120,6 @@ app.controller('choice', function($scope, $element, $attrs){
     $scope.click = function(correct){
         $scope.submit($attrs['correct']);
     }
-});
-
-
-app.directive('results', function(){
-    return {
-        restrict: 'E',
-        templateUrl: '/static/results.html'
-    };
 });
 
 })();

@@ -17,4 +17,5 @@ urlpatterns = [
     url(r'^(?P<session_id>[0-9]+)/(?P<exercise_id>[0-9]+)/question_status/$', 
         views.question_status, name='question_status'),
     url(r'^(?P<session_id>[0-9]+)/exit/$', views.exit_portal, name='exit'),
+    url(r'^$', views.resume, name='resume'),
 ]
