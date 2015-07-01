@@ -10,7 +10,7 @@ urlpatterns = [
     # within an exercise -- passage view
     url(r'^(?P<session_id>[0-9]+)/(?P<exercise_id>[0-9]+)/(?P<section>passage|comprehension|results)/$',
         views.section_view, name='exercise'),
-    url(r'^(?P<session_id>[0-9]+)/generate_exercise/$',
+    url(r'^generate_exercise/$',
         views.generate_exercise_and_reroute, name='generate'),
     url(r'^(?P<session_id>[0-9]+)/(?P<exercise_id>[0-9]+)/passage_(?P<start_or_stop>start|stop)/$', 
         views.passage_time, name='passage_time'),

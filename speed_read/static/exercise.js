@@ -1,105 +1,119 @@
 (function (){
 
-var app = angular.module('exercise', ['ngCookies'])
+var app = angular.module('exercise', ['ngCookies']);
 
 app.config(function($httpProvider) {
     $httpProvider.defaults.xsrfCookieName = 'csrftoken';
     $httpProvider.defaults.xsrfHeaderName = 'X-CSRFToken';
 });
 
-
-app.controller('passage', function($http, $scope, $element, $compile){
-            $scope.started = (started == 'True')
-            $scope.stopped = (stopped == 'True')
-            $scope.startUrl = startUrl;
-            $scope.stopUrl = stopUrl;
-
-            $scope.start_passage = function(){
-                console.log('started')
-                $http.post($scope.startUrl).
-                success(function(){
-                    console.log('posted start');
-                }).
-            error(function(data, status, headers, config){
-                console.log('failure')
-                //this will eventually be taken out:
-                var newElement = angular.element(data);
-                newElement.insertAfter($element);
-                $compile(newElement)($scope);
-                })
-            }
-            $scope.stop_passage = function(){
-                $http.post($scope.stopUrl).
-                success(function(){
-                    console.log('posted stop');
-                })
-
-            }
+app.config(function ($httpProvider) {
+  $httpProvider.defaults.transformRequest = function(data){
+    if (data === undefined) {
+      return data;
+    }
+    return $.param(data);
+  };
+  $httpProvider.defaults.headers.post['Content-Type'] = ''
+    + 'application/x-www-form-urlencoded; charset=UTF-8';
 });
 
-app.controller('comprehension', function($window, $scope, $http){
 
+app.controller('passage', function($http, $scope, $element, $compile){
+    $scope.started = (started == 'True')
+    $scope.stopped = (stopped == 'True')
+    $scope.startUrl = startUrl;
+    $scope.stopUrl = stopUrl;
 
-
-            //we have to wrap this functionality in a $watch so that
-            //it gets run AFTER the asynchronous http request
-            $scope.completedQuestions = 0;
-            $scope.indices = [];
-
-            $scope.$watch(function(){return $scope.content},
-                          function(){
-                            var i = 0;
-                            for (var v in $scope.content) {
-                                $scope.indices.push(i);
-                                if ($scope.content[i].status != 2) {
-                                    $scope.completedQuestions++;
-                                }
-                            i++;
-                            }
-                          });
-
-            $scope.submitAnswer = function(question, correct) {
-
-                console.log($scope.nextLink)
-                    if (correct) {
-                        question.status = 1;
-                    } else {
-                        question.status = 0;
-                    }
-                    $scope.completedQuestions++;
-                    console.log('answered: ' + question + ' ' + correct);
-                    }
-
-            $scope.next = function(){
-                $window.location.href = $scope.nextLink;
-            }
+    $scope.start_passage = function(){
+        console.log('started')
+        $scope.started = true;
+        $http({
+            method: "POST",
+            url: $scope.startUrl,
+            data: {}}
+            )
+        .success(function(){
+            console.log('posted start');
+        })
+        .error(function(data, status, headers, config){
+            console.log('failure')
+            //this will eventually be taken out:
+            var newElement = angular.element(data);
+            newElement.insertAfter($element);
+            $compile(newElement)($scope);
         });
+    }
 
-app.directive('question', function(){
-    return {
-        restrict: 'E',
-        template: '<div>{{ id }}{{ text }}</div><div ng-transclude></div>',
-        transclude: true,
-        controller: function($scope, $element, $attrs){
-            console.log('controller loaded');
-            $scope.text = $attrs['text'];
-            $scope.id = $attrs['id'];
-            $scope.status = $attrs['status'];
-            $scope.submit = function(question_id, correct){
-                
+    $scope.stop_passage = function(){
+        $scope.stopped = true;
+        $http({
+            method: 'POST',
+            url: $scope.stopUrl,
+            data: {}})
+        .success(function(){
+            console.log('posted stop');
+            })
+        }
+});
+
+app.controller('comprehension', function($element, $rootScope, $scope){
+    $rootScope.question_list = [];
+    $scope.$watch('$rootScope.question_list', function(){
+        console.log('question_list changed');
+        $rootScope.reveal_question();
+    })
+    //goes through all the buttons and reveals one if there's one to reveal
+    $rootScope.reveal_question = function(){
+        var revealed = false;
+        for (q in $rootScope.question_list) {
+            if (!revealed && !$rootScope.question_list[q].visible) {
+                revealed = true;
+                $rootScope.question_list[q].visible = true;
             }
         }
+        if (!revealed) {
+            console.log("show the next button");
+            $scope.showNextLink = true;
+        }
+        console.log($rootScope.question_list);
     }
-})
+});
 
-app.directive('choice', function(){
-    return {
-        scope: {},
-        restrict: 'E',
-        template: '<p><button></button></p>',
-        controller: function($scope, $element, $attrs){
-            console.log($scope.$parent.test);
-        },
+app.controller('question', function($rootScope, $scope, $element, $attrs, $http){
+    $scope.question_id = $attrs['id'];
+    $scope.status = $attrs['status'];
+    $scope.visible = ($scope.status != '2');
+
+    $scope.this_question = {'visible': $scope.status != '2'}
+
+    $rootScope.question_list.push($scope.this_question)
+    console.log($rootScope.question_list)
+
+    $scope.submit = function(correct){
+        console.log('submitted: ' + $scope.question_id + correct)
+        $http({
+            method: 'POST',
+            url: statusLink,
+            data: {'correct': correct,
+                    'question_id': $scope.question_id}})
+        .success(function(data){
+            $scope.status = (correct = 'True' ? '1' : '0')
+            console.log(data)
+            $rootScope.reveal_question();
+        })
+        .error(function(data){
+            //maybe not the call:
+            //$rootScope.error = data;
+            var newElement = angular.element(data);
+            newElement.insertAfter($element);
+        });
+    }
+});
+
+app.controller('choice', function($scope, $element, $attrs){
+    $scope.click = function(correct){
+        $scope.submit($attrs['correct']);
     }
 });
 

@@ -1,4 +1,5 @@
 import datetime
+import random
 
 from django.contrib.auth.models import User
 from django.db import models
@@ -22,6 +23,7 @@ class TrainingSession(models.Model):
     questions, their progress is tracked here.
     """
     ACCURACY_THRESHOLD = 0.5
+    EXERCISES_TO_COMPLETE = 5
 
     creation_time = models.DateTimeField(auto_now_add=True)
     # this is used to tell the user the last time they were working
@@ -30,8 +32,9 @@ class TrainingSession(models.Model):
     completion_time = models.DateTimeField(null=True)
     user = models.ForeignKey(User)
     active_exercise = models.ForeignKey('Exercise', null=True, default=None)
-
-    is_complete = models.BooleanField(default=False)
+    accuracy_threshold = models.FloatField(default=ACCURACY_THRESHOLD)
+    exercises_to_complete = models.SmallIntegerField(
+        default=EXERCISES_TO_COMPLETE)
 
 
     @staticmethod
@@ -41,7 +44,7 @@ class TrainingSession(models.Model):
         TODO: should make some verifications here
         """
         sessions = TrainingSession.objects.filter(
-            user=request.user, is_complete=False)
+            user=request.user, completion_time=None)
         if len(sessions) == 0:
             return None
         else:
@@ -58,7 +61,7 @@ class TrainingSession(models.Model):
         """
         # checks whether this is the active section
         session = TrainingSession.find_training_session(request)
-        if session is not None:
+        if session is not None and session.active_exercise is not None:
             exercise = session.active_exercise
 
             section_indices = ['passage', 'comprehension', 'results']
@@ -77,6 +80,29 @@ class TrainingSession(models.Model):
                 'visible': visible,
                 'active': active}
 
+    def generate_exercise(self):
+        # 1. choose a passage
+        # we only exclude passages that have been used in THIS training
+        # session, otherwise we could potentially run out of passages
+        # with an avid user 
+        used_passages = [ex.passage for ex in
+            Exercise.objects.filter(training_session=self)]
+        passages = [p for p in Passage.objects.all()] # if p not in used_passages]
+        assert len(passages)
+        passage = random.choice(passages)
+        # 2. choose questions for the passage
+        # TODO give it actual questions
+        questions = ComprehensionQuestion.objects.filter(passage=passage)
+
+        # 3. instantiate the exercise and attach it to the session,
+        # attach the questions
+        new_exercise = Exercise(passage=passage, training_session=self)
+        new_exercise.save()
+        self.active_exercise = new_exercise
+        self.save()
+        for q in questions:
+            QuestionExercise(question=q, exercise=new_exercise).save()
+
 
     def get_active_section(self):
         if self.active_exercise.passage_stop_time is None:
@@ -86,13 +112,20 @@ class TrainingSession(models.Model):
         else:
             return 'results'
 
+    def check_completion(self):
+        if self.completed_exercises >= self.exercises_to_complete:
+            self.completion_time = timezone.now()
+            self.save()
 
-    def get_continue_status(self):
-        """ 
-        Returns True if the session should continue, False if the
-        session is over.
-        """
-        return True
+    @property
+    def is_complete(self):
+        print("self.completion_time", self.completion_time)
+        return self.completion_time is not None
+
+    @property
+    def completed_exercises(self):
+        return sum([1 for e in Exercise.objects.filter(training_session=self)
+                        if e.success])
 
     def __str__(self):
         return "session: " + str(self.id) + " for user: " + str(self.user)
@@ -161,12 +194,18 @@ class Exercise(models.Model):
         self.passage_stop_time = timezone.now()
         self.save()
 
-    def completed(self):
-        # this is how django implements auto_now. worth noting that this
-        # means it's server time, not client time, so may take some
-        # translation on the other side
-        self.completion_time = timezone.now()
-        self.save()
+    def check_off(self, question_exercise, correct):
+        if correct:
+            question_exercise.status = QuestionExercise.CORRECT
+        else:
+            question_exercise.status = QuestionExercise.INCORRECT
+        question_exercise.save()
+        unanswered = [q for q in QuestionExercise.objects.filter(exercise=self)
+                        if q.status == QuestionExercise.UNATTEMPTED]
+        if len(unanswered) == 0:
+            self.completion_time = timezone.now()
+            self.training_session.check_completion()
+            self.save()
 
 
     @property
@@ -202,11 +241,25 @@ class Exercise(models.Model):
         Returns the student's accuracy on the
         associated comprehension questions over the range [0, 1].
         """
-        return None
+        question_exercises = QuestionExercise.objects.filter(exercise=self)
+        score = 0
+        for qe in question_exercises:
+            if qe.status == QuestionExercise.CORRECT:
+                score += 1.0
+        if len(question_exercises) > 0:
+            score = score / len(question_exercises)
+        return score
+
+    @property
+    def success(self):
+        return self.comprehension_accuracy >= TrainingSession.ACCURACY_THRESHOLD
+
 
     def __str__(self):
         return ("exercise: " + str(self.id) +
                 " for " + str(self.training_session))
+
+
 
 
 
@@ -226,10 +279,16 @@ class ComprehensionQuestion(models.Model):
     def choices(self):
         return ComprehensionChoice.objects.filter(question=self)
 
+    def __str__(self):
+        return str(self.id) + ': ' + self.text
+
 class ComprehensionChoice(models.Model):
     question = models.ForeignKey(ComprehensionQuestion)
     correct = models.BooleanField(default=False)
     text = models.TextField()
+
+    def __str__(self):
+        return self.question.text + ': ' + self.text
 
 
 class QuestionExercise(models.Model):

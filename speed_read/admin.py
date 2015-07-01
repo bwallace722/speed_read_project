@@ -1,5 +1,7 @@
 from django.contrib import admin
-from .models import TrainingSession, Exercise, Passage, ComprehensionQuestion, ComprehensionChoice, QuestionExercise
+from .models import (TrainingSession, Exercise, Passage,
+                    ComprehensionQuestion, ComprehensionChoice, 
+                    QuestionExercise)
 
 admin.site.register(TrainingSession)
 admin.site.register(Exercise)

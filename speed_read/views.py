@@ -1,14 +1,18 @@
 import random
 
-from django.shortcuts import render, get_object_or_404
+
+from django.shortcuts import render, get_object_or_404, redirect
 from django.views import generic
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponse, HttpResponseRedirect
 from django.core.urlresolvers import reverse
 from django.http import JsonResponse
+from django.views.decorators.cache import never_cache
 
 from .models import TrainingSession as TS, Exercise, Passage, QuestionExercise
 
+
+@never_cache
 @login_required
 def initial_view(request):
     """
@@ -18,17 +22,25 @@ def initial_view(request):
     """
     # check whether this is the appropriate session:
     template_name = 'speed_read/initial.html'
-    if TS.find_training_session(request) is None:
+    session = TS.find_training_session(request)
+    print("session: ", session)
+    print("session.is_complete: ", session.is_complete)
+    session.check_completion()
+    if session is None or session.is_complete:
         user = request.user
         session = TS(user=user)
         session.save()
-        return render(request, template_name, {})
+        context = {
+            'next_link': reverse('speed_read:generate'),
+        }
+        return render(request, template_name, context)
     else:
         return render(
             request, template_name,
             {"error_message" :
             "It looks like you're already in the middle of a session."})
 
+@never_cache
 @login_required
 def session_landing(request):
     """This is the page we should redirect to when users enter a bad url."""
@@ -45,16 +57,8 @@ def session_landing(request):
                         str(exercise.id))
     return HttpResponse(response)
 
-@login_required
-def generate_exercise_and_reroute(request):
-    """
-    This is the hub linked to by the initial page and the results
-    page when the controller needs to generate a new exercise for the
-    session and then send the user to that start that exercise.
-    """
-    return TS.generate_exercise_and_reroute(request)
 
-
+@never_cache
 @login_required
 def section_view(request, session_id, exercise_id, section):
     """
@@ -63,13 +67,18 @@ def section_view(request, session_id, exercise_id, section):
     # checks whether this is the active section
     verify_results = TS.verify_request(request, session_id,
                                        exercise_id, section)
-    if section == 'passage':
-        return passage_view(request, verify_results)
-    elif section == 'comprehension':
-        return comprehension_view(request, verify_results)
-    elif section == 'results':
-        return results_view(request, verify_results)
+    if verify_results['visible']:
+        if section == 'passage':
+            return passage_view(request, verify_results)
+        elif section == 'comprehension':
+            return comprehension_view(request, verify_results)
+        elif section == 'results':
+            return results_view(request, verify_results)
+    else:
+        return redirect('speed_read:landing')
 
+
+@never_cache
 @login_required
 def passage_view(request, verify_results):
     session = verify_results['session']
@@ -96,6 +105,7 @@ def passage_view(request, verify_results):
                'active': verify_results['active']};
     return render(request, 'speed_read/passage.html', context)
 
+@never_cache
 @login_required
 def comprehension_view(request, verify_results):
     exercise = verify_results['exercise']
@@ -105,8 +115,8 @@ def comprehension_view(request, verify_results):
                                 'section' : 'results'})
     status_link = reverse('speed_read:question_status',
                           kwargs={'session_id': verify_results['session'].id,
-                                  'exercise_id': exercise.id,}
-    questions = QuestionExercise.objects.all()
+                                  'exercise_id': exercise.id,})
+    questions = QuestionExercise.objects.filter(exercise=exercise)
     context = {'next_link': next_link,
                'status_link': status_link,
                'exercise': exercise,
@@ -116,39 +126,65 @@ def comprehension_view(request, verify_results):
     return render(request, 'speed_read/comprehension.html', context)
 
 @login_required
-def results_view(verify_results):
-
-    if session.get_continue_status:
-        next_link = reverse('speed_read:generate',                            
-                            kwargs={'session_id': session_id})
+def results_view(request, verify_results):
+    session = verify_results['session']
+    exercise = verify_results['exercise']
+    if not session.is_complete:
+        next_link = reverse('speed_read:generate')
     else:
-            next_link = reverse('speed_read:exit')
+        next_link = reverse('speed_read:exit')
     context = {'exercise': exercise,
                'session': session,
                'next_link': next_link,
-               'active': active}
-    return render(request, 'speed_read/passage.html', context)
+               'active': verify_results['active']}
+    return render(request, 'speed_read/results.html', context)
 
 
+@never_cache
+@login_required
+def generate_exercise_and_reroute(request):
+    """
+    This is the hub linked to by the initial page and the results
+    page when the controller needs to generate a new exercise for the
+    session and then send the user to that start that exercise.
+    """
+    session = TS.find_training_session(request)
+    #either they haven't started or they finished the last one
+    if session.active_exercise is None or session.active_exercise.is_complete:
+        session.generate_exercise()
+        exercise = session.active_exercise
+        return redirect('speed_read:exercise', session_id=session.id,
+                        exercise_id=exercise.id, section='passage')
+    else:
+        return HttpResponse('404?')
+
+
+@never_cache
 @login_required
 def passage_time(request, session_id, exercise_id, start_or_stop):
-    print('passage start')
     verify_results = TS.verify_request(request, session_id, 
                                        exercise_id, 'passage')
     if(verify_results['active']):
         if start_or_stop == 'start':
             print('started')
             verify_results['exercise'].start_passage()
+            return HttpResponse('success')
         elif start_or_stop == 'stop':
-            print('calling stop_passage()')
             verify_results['exercise'].stop_passage()
-    return HttpResponse('success')
+            return HttpResponse('success')
 
 
+@never_cache
 def question_status(request, session_id, exercise_id):
-    return JsonResponse('received')
+    if request.method == 'POST':
+        id = int(request.POST['question_id'])
+        correct = request.POST['correct'] == u'True'
+        question_exercise = get_object_or_404(QuestionExercise, pk=id)
+        exercise = question_exercise.exercise
+        exercise.check_off(question_exercise, correct)
+        return HttpResponse('received')
 
-
+@never_cache
 @login_required
 def exit_portal(request):
     return HttpResponse("this is the exit page")

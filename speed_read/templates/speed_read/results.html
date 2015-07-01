@@ -1,0 +1,17 @@
+<!-- This template is rendered by Django first -->
+
+{% extends "base.html" %}
+{% block title %}
+results view
+{% endblock %}
+
+{% block content %}
+<p>active: {{ active }}</p>
+<p>wpm: {{ exercise.words_per_minute }}</p>
+<p>accuracy: {{ exercise.comprehension_accuracy }}</p>
+<p>success: {{ exercise.success }}</p>
+<p>completed so far: {{ session.completed_exercises }}</p>
+<p>need to complete: {{ session.EXERCISES_TO_COMPLETE }}</p>
+<a href={{ next_link }}>continue</a>
+
+{% endblock %}

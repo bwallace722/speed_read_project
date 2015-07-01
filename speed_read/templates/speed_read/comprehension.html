@@ -2,7 +2,7 @@
 
 {% extends "base.html" %}
 {% block title %}
-passage view
+comprehension
 {% endblock %}
 
 {% block content %}
@@ -10,33 +10,34 @@ passage view
 
 
 <script>
-    var startUrl='{{ start_url }}'
-    var started='{{ exercise.passage_started }}'
-    var stopUrl='{{ stop_url }}'
-    var stopped='{{ exercise.passage_complete }}'
+    var statusLink='{{ status_link }}'
 </script>
 
 <div ng-controller='comprehension'>
 
-
 {% for question in questions %}
 
-<question text="{{question.question.text }}"
-          id="{{ question.id }}"
-          status="{{ question.status }}">
+    <div ng-controller="question"      
+         id="{{ question.id }}"
+         status="{{ question.status }}"
+         ng-show="this_question.visible">
+    
+         <p>
+            {{ question.id }}: {{question.question.text }}
+         </p>
+    
+        {% for choice in question.question.choices %}
+            <button ng-controller='choice'
+                    correct="{{ choice.correct }}"
+                    ng-click="click()"
+                    ng-disabled="status!=2">{{ choice.text }}</button>
+        {% endfor %}
+    
+    </div>
 
-    test
-    {% for choice in question.question.choices %}
-
-    <choice text="{{ choice.text }}"
-            correct="{{ choice.correct }}"></choice>
-
-    {% endfor %}
-
-</question>
 
 {% endfor %}
-
+    <a ng-show="showNextLink" href={{ next_link }}>next page</a>
 
 </div>
 
